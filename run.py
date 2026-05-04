@@ -1,4 +1,3 @@
-import pickle, multiprocessing #-
 from socket   import *         #-
 from time     import sleep     #-
 from random   import *         #-
@@ -7,31 +6,58 @@ from constRPC import *         #-
 from client   import *         #-
 from server   import *         #-
 from dbclient import *         #-
-#-
-def client1():
-  c1   = Client(PORTC1)                # create client
-  dbC1 = DBClient(HOSTS,PORTS)         # create reference
-  dbC1.create()                        # create new list
-  dbC1.appendData('Client 1')          # append some data
-  c2 = multiprocessing.Process(target=client2).start() # create 2nd client #-
-  sleep(2)                             # make sure the other client is running #-
-  c1.sendTo(HOSTC2,PORTC2,dbC1)        # send to other client
 
-def client2():
-  c2   = Client(PORTC2)                # create a new client
-  data = c2.recvAny()                  # block until data is sent
-  dbC2 = pickle.loads(data)            # receive reference
-  dbC2.appendData('Client 2')          # append data to same list
-  print(dbC2.getValue()) #-
-  c2.sendTo(HOSTS,PORTS,[STOP]) #-
-  
-def server(): #-
-  server = Server(PORTS) #-
-  c1 = multiprocessing.Process(target=client1).start() # create 1st client #-
-  server.run() #-
-#-
-if __name__ == "__main__": #-
-#-
-  s = multiprocessing.Process(target=server) #-
-  s.start() #- 
-  s.join() #-
+def executar_servidor():
+  print(f"--- Iniciando MODO SERVIDOR no IP {HOST_SERVER} ---")
+  # O servidor escuta em todas as interfaces ('')[cite: 1]
+  s = Server(PORTS) 
+  s.run()[cite: 1]
+
+def executar_cliente1():
+  print(f"--- Iniciando MODO CLIENTE 1 (Criador) ---")
+  c1 = Client(PORTC1)[cite: 5]
+  # Conecta ao IP central do servidor definido no constRPC
+  dbC1 = DBClient(HOST_SERVER, PORTS)[cite: 4, 5]
+    
+  print("Criando lista remota...")
+  dbC1.create()[cite: 5]
+  dbC1.appendData('Dado da Máquina Cliente 1')[cite: 5]
+    
+  print(f"Enviando Stub para Cliente 2 em {HOST_C2}...")
+  # Envia o objeto stub inteiro para o IP do Cliente 2[cite: 5]
+  c1.sendTo(HOST_C2, PORTC2, dbC1)[cite: 5]
+  print("Objeto enviado com sucesso.")
+
+def executar_cliente2():
+  print(f"--- Iniciando MODO CLIENTE 2 (Receptor) ---")
+  c2 = Client(PORTC2)[cite: 5]
+    
+  print("Aguardando objeto Stub da Máquina Cliente 1...")
+  data = c2.recvAny()[cite: 2, 5]
+  dbC2 = pickle.loads(data)[cite: 5]
+    
+  print("Stub recebido! Adicionando dados à lista compartilhada...")
+  dbC2.appendData('Dado da Máquina Cliente 2')[cite: 5]
+    
+  print("Resultado final obtido do servidor:")
+  print(dbC2.getValue())[cite: 5]
+    
+  # Encerra o servidor remotamente[cite: 5]
+  c2.sendTo(HOST_SERVER, PORTS, [STOP])[cite: 5]
+
+if __name__ == "__main__":
+  if len(sys.argv) < 2:
+      print("Uso: python run.py [1|2|3]")
+      print("1 = Servidor, 2 = Cliente 1, 3 = Cliente 2")
+      sys.exit(1)
+
+  escolha = sys.argv[1]
+
+  if escolha == '1':
+      executar_servidor()
+  elif escolha == '2':
+      executar_cliente1()
+  elif escolha == '3':
+      executar_cliente2()
+  else:
+      print("Parâmetro inválido. Use 1, 2 ou 3.")
